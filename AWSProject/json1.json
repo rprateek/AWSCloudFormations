@@ -1,0 +1,131 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "AWS CloudFormation Sample Template for launching linux EC2 instance, S3 and assigning Security group ",
+
+  "Parameters": {
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+    },
+
+    "InstanceType": {
+      "Description": "WebServer EC2 instance type",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.nano",
+        "t2.micro"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+
+    "SSHLocation": {
+      "Description": "The IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+
+  "Mappings": {
+    "AWSInstanceType2Arch": {
+      "t2.nano": { "Arch": "HVM64" },
+      "t2.micro": { "Arch": "HVM64" }
+    },
+    "AWSRegionArch2AMI": {
+      "ap-southeast-2": {
+        "HVM64": "ami-0ae99b503e8694028",
+        "HVMG2": "ami-0c0ab057a101d8ff2"
+      },
+      "us-east-1": {
+        "HVM64": "ami-032930428bf1abbff",
+        "HVMG2": "ami-0aeb704d503081ea6"
+      }
+    }
+
+  },
+
+  "Resources": {
+    "EC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "InstanceSecurityGroup"
+          }
+        ],
+        "KeyName": { "Ref": "KeyName" },
+        "ImageId": {
+          "Fn::FindInMap": [
+            "AWSRegionArch2AMI",
+            { "Ref": "AWS::Region" },
+            {
+              "Fn::FindInMap": [
+                "AWSInstanceType2Arch",
+                { "Ref": "InstanceType" },
+                "Arch"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "S3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "BucketName": "CLOUD-FORMATION-EXAMPLE-001"
+      },
+      "DependsOn": [
+        "EC2Instance"
+      ]
+    },
+
+
+    "InstanceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enable SSH access via port 22",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": { "Ref": "SSHLocation" }
+          }
+        ]
+      }
+    }
+  },
+
+  "Outputs": {
+    "InstanceId": {
+      "Description": "InstanceId of the newly created EC2 instance",
+      "Value": { "Ref": "EC2Instance" }
+    },
+    "S3": {
+      "Description": "Bucket Name of S3",
+      "Value": { "Ref": "S3Bucket" }
+    },
+    "AZ": {
+      "Description": "Availability Zone of the newly created EC2 instance",
+      "Value": { "Fn::GetAtt": [ "EC2Instance", "AvailabilityZone" ] }
+    },
+    "PublicDNS": {
+      "Description": "Public DNSName of the newly created EC2 instance",
+      "Value": { "Fn::GetAtt": [ "EC2Instance", "PublicDnsName" ] }
+    },
+    "PublicIP": {
+      "Description": "Public IP address of the newly created EC2 instance",
+      "Value": { "Fn::GetAtt": [ "EC2Instance", "PublicIp" ] }
+    }
+  }
+}
