@@ -85,7 +85,7 @@
             "Type" : "AWS::S3::Bucket",
             "DeletionPolicy" : "Retain",
             "Properties"     : {
-                "BucketName" : "CLOUD-FORMATION-EXAMPLE-001"
+                "BucketName" : "cloud-formation-example-001"
             },
             "DependsOn"      : [
                 "EC2Instance"

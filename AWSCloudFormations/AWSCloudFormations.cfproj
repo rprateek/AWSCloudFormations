@@ -17,6 +17,17 @@
     <Compile Include="cloudformation.template">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ops-automator.template">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Images" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Images\EC2-S3.png">
+      <SubType>Content</SubType>
+    </Content>
   </ItemGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
   </PropertyGroup>
