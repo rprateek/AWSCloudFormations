@@ -25,6 +25,9 @@
     <Folder Include="Images" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Prat_VPC_PublicInstance.yaml">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Images\EC2-S3.png">
       <SubType>Content</SubType>
     </Content>

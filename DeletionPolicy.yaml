@@ -1,0 +1,9 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deletion policy for Importing resources in Cloudformation stack
+Resources:
+  ImportedInstance:  
+    Type: AWS::EC2::Instance
+    DeletionPolicy: Retain    
+  ImportedBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
