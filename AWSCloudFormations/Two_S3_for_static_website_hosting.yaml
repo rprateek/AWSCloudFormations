@@ -1,129 +1,57 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "This template is used to spin up two S3 buckets to host static website and redirect www subdomain traffic to domain bucket"
+Description: This template is used to spin up two S3 buckets to host static website and redirect www subdomain traffic to domain bucket
 
 Parameters:
-  BucketName:
+  RootDomainName:
+    Description: Domain name for your website (example.com)
     Type: String
-    Default: "www.ramaregmi.com"
-
+Mappings:
+  RegionMap:   
+    ap-southeast-2:
+      S3hostedzoneID: Z1WCIGYICN2BYD
+      websiteendpoint: s3-website-ap-southeast-2.amazonaws.com   
 Resources:
-  # Create a root bucket to host static contents
-  S3RootBucket:
-    Type: "AWS::S3::Bucket"
+  RootBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref BucketName
+      BucketName: !Ref RootDomainName
+      AccessControl: PublicRead
       WebsiteConfiguration:
-        ErrorDocument: "error.html"
-        IndexDocument: "index.html"
-
-  # WWW subdomain redirect bucket
-   wwwBucket:
-    Type: "AWS::S3::Bucket"
+        IndexDocument: index.html
+        ErrorDocument: 404.html
+  WWWBucket:
+    Type: AWS::S3::Bucket
     Properties:
-       BucketName: !Sub
+      BucketName: !Sub
           - www.${Domain}
-          - Domain: !Ref BucketName
+          - Domain: !Ref RootDomainName
       AccessControl: BucketOwnerFullControl
       WebsiteConfiguration:
         RedirectAllRequestsTo:
           HostName: !Ref RootBucket
-
-  # Configure the bucket as a CloudFront Origin
-  ReadPolicy:
-    Type: "AWS::S3::BucketPolicy"
+  myDNS:
+    Type: AWS::Route53::RecordSetGroup
     Properties:
-      Bucket: !Ref S3RootBucket
-      PolicyDocument:
-        Statement:
-          - Action: "s3:GetObject"
-            Effect: Allow
-            Resource: !Sub "arn:aws:s3:::${S3RootBucket}/*"
-            Principal: "*"
-            # In an ideal scenario the policy would only grant these rights to CloudFront,
-            # we do not do it from scratch as many projects start without having a domain name specified
-            # and we want to test the code as soon as possible.           
-
-  # Configure Access to CloudFront
-  CloudFrontOriginAccessIdentity:
-    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Ref S3RootBucket
-
-  # Configure CloudFront
-  CloudFrontDistribution:
-    Type: "AWS::CloudFront::Distribution"
-    Properties:
-      DistributionConfig:
-        CustomErrorResponses:
-          - ErrorCode: 403 # not found
-            ResponseCode: 404
-            ResponsePagePath: "/index.html"
-        DefaultCacheBehavior:
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-          CachedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-          Compress: true
-          DefaultTTL: 3600 # in seconds
-          ForwardedValues:
-            Cookies:
-              Forward: none
-            QueryString: false
-          MaxTTL: 86400 # in seconds
-          MinTTL: 60 # in seconds
-          TargetOriginId: s3origin
-          ViewerProtocolPolicy: "allow-all"
-        # This DefaultRootObject configuration is not enough.
-        DefaultRootObject: "/index.html"
-        Enabled: true
-        HttpVersion: http2
-        Origins:
-          - DomainName: !GetAtt "S3RootBucket.DomainName"
-            Id: s3origin
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
-        PriceClass: "PriceClass_All"
-
-  # Create an IAM user with Access Keys to enable automated deployment of the website to this bucket
-  PublishUser:
-    Type: "AWS::IAM::User"
-    Properties:
-      Policies:
-        - PolicyName: !Sub "publish-to-${S3RootBucket}"
-          PolicyDocument:
-            Statement:
-              - Action: "s3:*"
-                Effect: Allow
-                Resource:
-                  - !Sub "arn:aws:s3:::${S3RootBucket}"
-                  - !Sub "arn:aws:s3:::${S3RootBucket}/*"
-
-  PublishCredentials:
-    Type: "AWS::IAM::AccessKey"
-    Properties:
-      UserName: !Ref PublishUser
-
+      HostedZoneName: !Sub 
+          - ${Domain}.
+          - Domain: !Ref RootDomainName
+      Comment: Zone apex alias.
+      RecordSets:
+      - 
+        Name: !Ref RootDomainName
+        Type: A
+        AliasTarget:
+          HostedZoneId: !FindInMap [ RegionMap, !Ref 'AWS::Region', S3hostedzoneID]
+          DNSName: !FindInMap [ RegionMap, !Ref 'AWS::Region', websiteendpoint]
+      -
+        Name: !Sub
+            - www.${Domain}
+            - Domain: !Ref RootDomainName
+        Type: CNAME
+        TTL: 900
+        ResourceRecords:
+        - !GetAtt WWWBucket.DomainName
 Outputs:
-  Bucket:
-    Description: "S3 Bucket Name"
-    Value: !Ref S3RootBucket
-  BucketUrl:
-    Description: "S3 Bucket Url"
-    Value: !GetAtt "S3RootBucket.WebsiteURL"
-  AccessKeyId:
-    Description: "S3 Access Key"
-    Value: !Ref PublishCredentials
-  AccessKeySecret:
-    Description: "S3 Secret Key"
-    Value: !GetAtt PublishCredentials.SecretAccessKey
-  DistributionId:
-    Description: "CloudFront Distribution ID"
-    Value: !Ref CloudFrontDistribution
-  Domain:
-    Description: "Cloudfront Domain"
-    Value: !GetAtt CloudFrontDistribution.DomainName
+  WebsiteURL:
+    Value: !GetAtt RootBucket.WebsiteURL
+    Description: URL for website hosted on S3
