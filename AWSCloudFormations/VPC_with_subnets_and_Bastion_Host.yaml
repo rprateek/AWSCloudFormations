@@ -1,15 +1,18 @@
 
 Description:  Prateek base VPC Template + Public Instance
 Parameters:
+# Get the EC2 AMI as input
   LatestAmiId:      
     Description: AMI for EC2 (default is latest AmaLinux2)
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+# Get the secret key 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: "Name of an existing SSH Keypair to access the instance"
     Default: "A4L"
 Resources:
+# Define the VPC with IPv4 and Ipv6 Cider block
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -25,6 +28,7 @@ Resources:
       VpcId: 
         Ref: VPC
       AmazonProvidedIpv6CidrBlock: true
+  # Define all the subnets required
   SubnetReservedA:
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
@@ -217,6 +221,7 @@ Resources:
       Tags:
         - Key: Name
           Value: sn-web-C
+  # Define the internet Gateway and attatch it with the VPC
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
@@ -230,6 +235,7 @@ Resources:
         Ref: VPC
       InternetGatewayId: 
         Ref: InternetGateway
+  # Define the route table to route both ipv4 and Ipv6 IP to internet 
   RouteTableWeb: 
     Type: 'AWS::EC2::RouteTable'
     Properties:
@@ -256,6 +262,7 @@ Resources:
       DestinationIpv6CidrBlock: '::/0'
       GatewayId: 
         Ref: InternetGateway
+  # Assocate the route table to the web subnets so that they access the internet
   RouteTableAssociationWebA:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
@@ -274,6 +281,7 @@ Resources:
       SubnetId: !Ref SubnetWEBC
       RouteTableId:
         Ref: RouteTableWeb
+  # Define a security group to be used by an Instance
   InstanceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -295,6 +303,7 @@ Resources:
           FromPort: '22'
           ToPort: '22'
           CidrIpv6: ::/0
+  # Create a EC2 instance in public web subnet so that it can access the internet. 
   PublicEC2:
     Type: AWS::EC2::Instance
     Properties:

@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This template is used to spin up two S3 buckets to host static website and redirect www subdomain traffic to domain bucket"
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: "www.ramaregmi.com"
+
+Resources:
+  # Create a root bucket to host static contents
+  S3RootBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        ErrorDocument: "error.html"
+        IndexDocument: "index.html"
+
+  # WWW subdomain redirect bucket
+   wwwBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+       BucketName: !Sub
+          - www.${Domain}
+          - Domain: !Ref BucketName
+      AccessControl: BucketOwnerFullControl
+      WebsiteConfiguration:
+        RedirectAllRequestsTo:
+          HostName: !Ref RootBucket
+
+  # Configure the bucket as a CloudFront Origin
+  ReadPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3RootBucket
+      PolicyDocument:
+        Statement:
+          - Action: "s3:GetObject"
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${S3RootBucket}/*"
+            Principal: "*"
+            # In an ideal scenario the policy would only grant these rights to CloudFront,
+            # we do not do it from scratch as many projects start without having a domain name specified
+            # and we want to test the code as soon as possible.           
+
+  # Configure Access to CloudFront
+  CloudFrontOriginAccessIdentity:
+    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Ref S3RootBucket
+
+  # Configure CloudFront
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        CustomErrorResponses:
+          - ErrorCode: 403 # not found
+            ResponseCode: 404
+            ResponsePagePath: "/index.html"
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          Compress: true
+          DefaultTTL: 3600 # in seconds
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+          MaxTTL: 86400 # in seconds
+          MinTTL: 60 # in seconds
+          TargetOriginId: s3origin
+          ViewerProtocolPolicy: "allow-all"
+        # This DefaultRootObject configuration is not enough.
+        DefaultRootObject: "/index.html"
+        Enabled: true
+        HttpVersion: http2
+        Origins:
+          - DomainName: !GetAtt "S3RootBucket.DomainName"
+            Id: s3origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+        PriceClass: "PriceClass_All"
+
+  # Create an IAM user with Access Keys to enable automated deployment of the website to this bucket
+  PublishUser:
+    Type: "AWS::IAM::User"
+    Properties:
+      Policies:
+        - PolicyName: !Sub "publish-to-${S3RootBucket}"
+          PolicyDocument:
+            Statement:
+              - Action: "s3:*"
+                Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3RootBucket}"
+                  - !Sub "arn:aws:s3:::${S3RootBucket}/*"
+
+  PublishCredentials:
+    Type: "AWS::IAM::AccessKey"
+    Properties:
+      UserName: !Ref PublishUser
+
+Outputs:
+  Bucket:
+    Description: "S3 Bucket Name"
+    Value: !Ref S3RootBucket
+  BucketUrl:
+    Description: "S3 Bucket Url"
+    Value: !GetAtt "S3RootBucket.WebsiteURL"
+  AccessKeyId:
+    Description: "S3 Access Key"
+    Value: !Ref PublishCredentials
+  AccessKeySecret:
+    Description: "S3 Secret Key"
+    Value: !GetAtt PublishCredentials.SecretAccessKey
+  DistributionId:
+    Description: "CloudFront Distribution ID"
+    Value: !Ref CloudFrontDistribution
+  Domain:
+    Description: "Cloudfront Domain"
+    Value: !GetAtt CloudFrontDistribution.DomainName
