@@ -1,0 +1,9 @@
+{
+    "Version": "2012-10-17",
+    "Statement":{
+        "Sid": "PublicRead",
+        "Principal": "*",
+        "Action": ["s3:getObject"],
+        "Resource":["REPLACE_WITH_BUCKET_ARN"]
+    }
+}
