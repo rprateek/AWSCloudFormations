@@ -1,5 +1,5 @@
 
-var API_ENDPOINT = 'https://5f0424dxoj.execute-api.ap-southeast-2.amazonaws.com/Production/TaskReminderAPI';
+var API_ENDPOINT = 'https://5f0424dxoj.execute-api.ap-southeast-2.amazonaws.com/Production/taskreminder ';
 // if correct it should be similar to https://5f0424dxoj.execute-api.ap-southeast-2.amazonaws.com/Production/TaskReminderAPI
 
 var errorDiv = document.getElementById('error-message')
@@ -10,7 +10,7 @@ var resultsDiv = document.getElementById('results-message')
 function waitSecondsValue() { return document.getElementById('waitSeconds').value }
 function messageValue() { return document.getElementById('message').value }
 function emailValue() { return document.getElementById('email').value }
-function phoneValue() { return document.getElementById('phone').value }
+function phoneValue() { return document.getElementById('mobile').value }
 
 function clearNotifications() {
     errorDiv.textContent = '';
